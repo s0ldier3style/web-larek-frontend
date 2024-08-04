@@ -20,7 +20,7 @@ import {
         super()
     }
 
-    protected onModelChange(changed: AppStateChanges) {
+    protected onModalChange(changed: AppStateChanges) {
 
     }
  }
