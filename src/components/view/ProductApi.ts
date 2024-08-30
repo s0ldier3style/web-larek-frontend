@@ -20,7 +20,7 @@ export class ProductApi extends Api {
 		});
 	}
 
-	getProductItem(id: string): Promise<IProductCard> {
+	getProductCard(id: string): Promise<IProductCard> {
 		return this.get<IProductCard>(`/product/${id}`).then((data) => {
 			const item = data;
 			return {
