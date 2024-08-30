@@ -1,5 +1,3 @@
-import { EventHandler, EventsMap } from "../../types/components/base/EventEmitter";
-
 // Хорошая практика даже простые типы выносить в алиасы
 // Зато когда захотите поменять это достаточно сделать в одном месте
 type EventName = string | RegExp;
@@ -86,5 +84,3 @@ export class EventEmitter implements IEvents {
         };
     }
 }
-
-

@@ -1,86 +1,163 @@
-import { Contacts,
-    IProductApi,
-    IProduct,
-    Order,
-    OrderResult,
-    IBasketItems,
-    IApiError
- } from "../../types/components/model/ProductApi";
+import { Model } from '../base/Model';
+import {
+	IAppState,
+	IProductCard,
+	IFormError,
+	TPayment,
+	IOrder,
+	IOrderForm,
+} from '../../types/index';
 
- import { AppState,
-    AppStateChanges,
-    AppStateModals,
-    AppStateSettings,
-    BasketData,
-    ProductDescription,
-    PersistedState,
-    ProductData,
-    ProductInBasketData
-  } from "../../types/components/model/AppState";
-import { IBasketModel } from "../../types/components/model/Basket";
+enum OrderError {
+	PAYMENT = 'Необходимо указать способ оплаты',
+	ADDRESS = 'Необходимо указать адрес',
+}
 
-  export class AppStateModel implements AppState {
-    basket: Map<string, IBasketModel>;
-    contacts: Contacts = {
-        email: '',
-        phone: '',
-        address: ''
-    };
-    order: Order;
+enum ContactError {
+	EMAIL = 'Необходимо указать email',
+	PHONE = 'Необходимо указать телефон',
+}
 
-    _productList: Map<string, IProduct>;
+export class Product extends Model<IProductCard> {
+	id: string;
+	description: string;
+	image: string;
+	title: string;
+	category: string;
+	price: number | null;
+	selected: boolean;
+}
 
-    openedModal: AppStateModals = AppStateModals.none;
-    modalMessage: string | null = null;
-    isError: false;
+export class AppState extends Model<IAppState> {
+	//каталог со всеми товарами
+	protected catalog: IProductCard[];
+	//каталог с купленными товарами
+	protected basket: IProductCard[] = [];
+	//заказ клиента
+	order: IOrder = {
+		address: '',
+		payment: 'Online',
+		email: '',
+		total: 0,
+		phone: '',
+		items: [],
+	};
 
-    constructor(protected api: IProductApi, protected settings: AppStateSettings) {}
+	protected formErrors: IFormError = {};
 
-    get basketTotal(): number {
-        return
-    }
+	setCatalog(items: IProductCard[]) {
+		this.catalog = items.map((item) => {
+			// Если цена равна null, устанавливаем selected в true
+			if (item.price === null) {
+				item.selected = true;
+			}
+			return new Product(item, this.events);
+		});
+		this.emitChanges('items:changed', { catalog: this.catalog });
+	}
 
-    get isOrderReady(): boolean {
-        return
-    }
+	//получение каталога
+	getCatalog(): IProductCard[] {
+		return this.catalog;
+	}
+	//получение карточки продукта
+	getProduct(id: string): IProductCard {
+		return this.catalog.find((item) => item.id === id);
+	}
 
-    get productList(): Map<string, IProduct> {
-        return
-    }
+	//добавление товара в корзину
+	addItemToBasket(item: Product) {
+		this.basket.push(item);
+		this.emitChanges('basket:changed', { basket: this.basket });
+	}
 
-    loadProductList(): Promise<void> {
-        return
-    }
+	//удаление товара из корзины
+	removeFromBasket(id: string) {
+		this.basket = this.basket.filter((item) => item.id !== id);
+		this.emitChanges('basket:changed', { basket: this.basket });
+	}
 
-    addToBasket(id: string): void {
-        
-    }
+	//очистка корзины
+	clearBasket() {
+		this.basket = [];
+		this.emitChanges('basket:changed', { basket: this.basket });
+	}
 
-    removeFromBasket(id: string): void {
-        
-    }
+	//вывод итоговой стоимости
+	getTotalPrice() {
+		return this.basket.reduce((total, item) => {
+			return total + (item.price || 0);
+		}, 0);
+	}
 
-    fillContacts(contacts: Partial<Contacts>): void {
-        
-    }
+	//вывод количества товаров находящихся в корзине
+	getBasketQuantity() {
+		return this.basket.length;
+	}
 
-    isValidContacts(): boolean {
-        return
-    }
+	//вывод товаров находящихся в корзине
+	getBasketList(): IProductCard[] {
+		return this.basket;
+	}
 
-    openModal(modal: AppStateModals): void {
-        
-    }
+	//методы предназначен для установки значений в объекте заказа order и валидации введенных данных.
+	setOrderField(field: keyof IOrderForm, value: string) {
+		if (field === 'payment') {
+			this.order[field] = value as TPayment;
+		} else {
+			this.order[field] = value;
+		}
 
-    setMessage(message: string | null, isError: boolean): void {
-        
-    }
+		if (this.validateForms()) {
+			this.events.emit('order:ready', this.order);
+		}
+	}
 
-    restoreState(): void {
-        
-    }
+	setContactField(field: keyof IOrderForm, value: string) {
+		if (field !== 'payment') {
+			this.order[field] = value;
+		}
 
-    persistState(): void {
-        
-    }
-  }
+		console.log('state emit: ', field, value);
+		if (this.validateForms()) {
+			this.events.emit('contacts:ready', this.order);
+		}
+	}
+
+	// валидация форм
+	validateForms() {
+		const errors: typeof this.formErrors = {};
+
+		if (!this.order.payment) {
+			errors.payment = OrderError.PAYMENT;
+		}
+
+		if (!this.order.address) {
+			errors.address = OrderError.ADDRESS;
+		}
+
+		if (!this.order.email) {
+			errors.email = ContactError.EMAIL;
+		}
+
+		if (!this.order.phone) {
+			errors.phone = ContactError.PHONE;
+		}
+
+		this.formErrors = errors;
+		this.events.emit('formErrors:change', this.formErrors);
+		return Object.keys(errors).length === 0;
+	}
+
+	//очистка
+	clearOrder() {
+		this.order = {
+			address: '',
+			payment: 'Online',
+			email: '',
+			total: 0,
+			phone: '',
+			items: [],
+		};
+	}
+}

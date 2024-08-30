@@ -1,95 +1,204 @@
 import './scss/styles.scss';
+import { ApiListResponse } from './components/base/Api';
+import { API_URL, CDN_URL } from './utils/constants';
+import { OrderApi, ProductApi } from './components/view/ProductApi';
+import { cloneTemplate, ensureElement } from './utils/utils';
+import { IOrderForm, IOrderModelPost } from './types/index';
+import { EventEmitter } from './components/base/EventEmitter';
+import { AppState, Product } from './components/model/AppState';
+import { Page } from './components/view/partial/Page';
+import { Modal } from './components/view/common/Modal';
+import { Card, CardPreview } from './components/view/partial/Card';
+import { CardBasket, Basket } from './components/view/partial/Basket';
+import { FormOrder } from './components/view/screen/FormOrder';
+import { FormContacts } from './components/view/screen/FormContacts';
+import { Success } from './components/view/screen/Success';
 
+const cardCatalogTemplate = ensureElement<HTMLTemplateElement>('#card-catalog');
+const cardPreviewTemplate = ensureElement<HTMLTemplateElement>('#card-preview');
+const cardBasketTemplate = ensureElement<HTMLTemplateElement>('#card-basket');
+const basketTemplate = ensureElement<HTMLTemplateElement>('#basket');
+const formOrderTempalte = ensureElement<HTMLTemplateElement>('#order');
+const formContactsTemplate = ensureElement<HTMLTemplateElement>('#contacts');
+const successTemplate = ensureElement<HTMLTemplateElement>('#success');
 
+const events = new EventEmitter();
 
-/* export class Api implements IApi {
-    baseUrl: string = 'baseUrl';
+const page = new Page(document.body, events);
+const modal = new Modal(ensureElement<HTMLElement>('#modal-container'), events);
 
-    private getResponseData(res: any) {
-        if (!res.ok) {
-          return Promise.reject(`Ошибка: ${res.status}`);
-        }
-        return res.json();
-      }
+const basket = new Basket(cloneTemplate(basketTemplate), events);
+const orderForm = new FormOrder(cloneTemplate(formOrderTempalte), events);
+const contactsForm = new FormContacts(
+	cloneTemplate(formContactsTemplate),
+	events
+);
+const success = new Success(cloneTemplate(successTemplate), events);
 
-    getList(): void {
-        
-        fetch(`${this.baseUrl}/product/`)
-        .then((res) => {
-            return this.getResponseData(res);
-        })
-        .then((data) => {
-            return data;
-        })
-    };
+const api = new ProductApi(CDN_URL, API_URL);
+const appData = new AppState({}, events);
+api.getProductList().then((response) => {
+	appData.setCatalog(response);
+});
 
-    
-    getItem(id: string): IProduct | IApiError;
+const orderApi = new OrderApi(CDN_URL, API_URL);
 
+events.on('items:changed', () => {
+	page.catalog = appData.getCatalog().map((item) => {
+		const card = new Card('card', cloneTemplate(cardCatalogTemplate), events, {
+			onClick: () => events.emit('carditem:open', item),
+		});
+		return card.render({
+			category: item.category,
+			title: item.title,
+			image: item.image,
+			price: item.price,
+			id: item.id,
+		});
+	});
+});
 
-    postOrder(user: IUserInfo, total: number, items: string[]): {
-        id: string;
-        total: number;
-    } | IApiError
-}
+events.on('carditem:open', (data) => {
+	const carditem = data as Card;
+	const item = appData.getCatalog().find((item) => item.id === carditem.id);
+	const cardPreview = new CardPreview(
+		cloneTemplate(cardPreviewTemplate),
+		events
+	);
+	modal.render({ content: cardPreview.render(item) });
+	page.locked = true;
+});
 
-export class User implements IUser  {
+events.on('card:addtobasket', (data) => {
+	const carditem = data as Card;
+	const orderitem = appData
+		.getCatalog()
+		.find((item) => item.id === carditem.id);
+	orderitem.selected = true;
+	appData.addItemToBasket(orderitem as Product);
+	page.counter = appData.getBasketList().length;
+	modal.close();
+});
 
-    protected payment: PaymentType = null;
-    protected email: string = '';
-    protected phone: string = '';
-    protected address: string = '';
-    clear(): void {
-        this.payment = null;
-        this.email = '';
-        this.phone = '';
-        this.address= '';
-    }
+events.on('basket:open', () => {
+	const basketArray = appData.getBasketList();
+	const cardBasketElements = basketArray.map((item, index) => {
+		const cardBasketElement = cloneTemplate(cardBasketTemplate);
+		const cardBasket = new CardBasket('card', cardBasketElement, {
+			onClick: () => events.emit('basket:delete', item),
+		});
+		cardBasket.index = index + 1;
+		cardBasket.title = item.title;
+		cardBasket.price = item.price;
+		return cardBasketElement;
+	});
+	if (basketArray.length === 0) {
+		basket.disableButton();
+	} else {
+		basket.undisableButton();
+	}
+	basket.items = cardBasketElements;
+	basket.totalPrice = basketArray.reduce(
+		(total, item) => total + (item.price || 0),
+		0
+	);
+	modal.render({ content: basket.getContainer() });
+	page.locked = true;
+});
 
-    inputValueHandler(data: IUserInfo): void  {
-        if (data.payment)  this.payment = data.payment;
-        if (data.address)  this.address = data.address;
-        if (data.phone)  this.phone = data.phone;
-        if (data.email)  this.email = data.email;
-    }
+events.on('basket:delete', (item: Product) => {
+	appData.removeFromBasket(item.id);
+	item.selected = false;
+	page.counter = appData.getBasketList().length;
+	const basketArray = appData.getBasketList();
+	console.log(basketArray);
+	basket.totalPrice = basketArray.reduce(
+		(total, item) => total + (item.price || 0),
+		0
+	);
+	events.emit('basket:open');
+});
 
-    getUserInfo(): IUserInfo {
-        return {
-            payment: this.payment,
-            email: this.email,
-            phone: this.phone,
-            address: this.address
-        }
- 
-    }
-}
+events.on('orderform:open', () => {
+	modal.render({
+		content: orderForm.render({
+			address: '',
+			valid: false,
+			errors: [],
+		}),
+	});
+});
 
-export class BasketModel implements IBasketModel {
-    productList: Map<string, number> = new Map();
-    constructor(protected events: IEventEmitter) {
-        this.events = events;
-    };
+events.on('formErrors:change', (errors: Partial<IOrderForm>) => {
+	const { email, phone, address, payment } = errors;
+	orderForm.valid = !address && !payment;
+	contactsForm.valid = !email && !phone;
+	orderForm.errors = Object.values({ address, payment })
+		.filter((i) => !!i)
+		.join('; ');
+	contactsForm.errors = Object.values({ email, phone })
+		.filter((i) => !!i)
+		.join('; ');
+});
 
-    add(id: string): void {
-        if (!this.productList.has(id)) {
-            this.productList.set(id, 0)
-        }
-        this.productList.set(id, this.productList.get(id)! + 1);
-        this._changed();
-    };
+events.on(
+	/^order\..*:change/,
+	(data: { field: keyof IOrderForm; value: string }) => {
+		appData.setOrderField(data.field, data.value);
+	}
+);
 
-    remove(id: string): void {
-        if (!this.productList.has(id)) return;
-        if (this.productList.get(id)! > 0) {
-            this.productList.set(id, this.productList.get(id)! -1);
-            if (this.productList.get(id) === 0) this.productList.delete(id);
-        }
-        this._changed();
-    };
+events.on(
+	/^contacts\..*:change/,
+	(data: { field: keyof IOrderForm; value: string }) => {
+		appData.setContactField(data.field, data.value);
+	}
+);
 
-    protected _changed(): void {
-        this.events.emit('basket:changed', { items: Array.from(this.productList.keys())})
-    }
-}
-        
-*/
+events.on('order:submit', () => {
+	appData.order.total = appData.getTotalPrice();
+	modal.render({
+		content: contactsForm.render({
+			email: '',
+			phone: '',
+			valid: false,
+			errors: [],
+		}),
+	});
+});
+
+events.on('contacts:submit', () => {
+	appData.order.items = appData.getBasketList().map((item) => item.id);
+	orderApi
+		.orderProduct(appData.order as IOrderModelPost)
+		.then((response: any) => {
+			events.emit('order:success', response);
+			appData.clearBasket();
+			appData.clearOrder();
+			page.counter = 0;
+			appData.getCatalog().forEach((item) => {
+				if (item.price === null) {
+					item.selected = true;
+				} else {
+					item.selected = false;
+				}
+			});
+		})
+		.catch((error) => console.log(error));
+});
+
+events.on('order:success', (response: ApiListResponse<string>) => {
+	modal.render({
+		content: success.render({
+			total: response.total,
+		}),
+	});
+});
+
+events.on('sucess:close', () => {
+	modal.close();
+});
+
+events.on('modal:close', () => {
+	page.locked = false;
+});

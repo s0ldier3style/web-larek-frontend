@@ -1,42 +1,58 @@
-import { View } from '../../base/View';
-import { ModalData, ModalSettings } from '../../../types/components/view/common/Modal';
+import { Component } from '../../base/Component';
+import { ensureElement } from '../../../utils/utils';
+import { IEvents } from '@/components/base/EventEmitter';
 
+interface IModalData {
+	content: HTMLElement;
+}
 
-export class ModalView<H, C> extends View {
-	protected static _openedModal: ModalView<unknown, unknown> | null;
+export class Modal extends Component<IModalData> {
+	protected _closeButton: HTMLButtonElement;
+	protected _content: HTMLElement;
 
-	protected init() {
-		
+	constructor(container: HTMLElement, protected events: IEvents) {
+		super(container);
+
+		this._closeButton = ensureElement<HTMLButtonElement>(
+			'.modal__close',
+			this.container
+		);
+		this._content = ensureElement<HTMLElement>(
+			'.modal__content',
+			this.container
+		);
+
+		this._closeButton.addEventListener('click', this.close.bind(this));
+		this.container.addEventListener('click', this.close.bind(this));
+		this._content.addEventListener('click', (event) => event.stopPropagation());
 	}
 
-	protected onCloseHandler(event?: MouseEvent) {
-		
+	set content(value: HTMLElement | null) {
+		if (value) {
+			this._content.replaceChildren(value);
+		} else {
+			this._content.innerHTML = '';
+		}
 	}
 
-	protected onOpenHandler() {
-		
+	open() {
+		this.container.classList.add('modal_active');
+		this.events.emit('modal:open');
 	}
 
-
-	set header(data: H | undefined) {
-		
+	close() {
+		this.container.classList.remove('modal_active');
+		this.content = null;
+		this.events.emit('modal:close');
 	}
 
-	set content(data: C) {
-		
+	isActive(): boolean {
+		return this.container.classList.contains('modal_active');
 	}
 
-	
-	set message(value: string | undefined) {
-		
-	}
-
-	set isError(state: boolean) {
-		
-	}
-
-	
-	set isActive(state: boolean) {
-		
+	render(data: IModalData): HTMLElement {
+		super.render(data);
+		this.open();
+		return this.container;
 	}
 }

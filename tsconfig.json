@@ -1,12 +1,20 @@
 {
   "compilerOptions": {
+    "module": "NodeNext",
+    "target": "es2017",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "allowSyntheticDefaultImports": true,
     "noImplicitAny": true,
-    "module": "es6",
-    "target": "es2017",
     "allowJs": true,
-    "experimentalDecorators": true,
-    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "sourceMap": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "outDir": "dist",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
   },
-  //"include": ["src/index.ts", "src/types/*.d.ts"]
+  "include": ["src"]
 }
