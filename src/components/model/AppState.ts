@@ -18,16 +18,6 @@ enum ContactError {
 	PHONE = 'Необходимо указать телефон',
 }
 
-// Класс Product отвечат за создание объекта товара внутри каталога, строка 55
-export class Product extends Model<IProductCard> {
-	id: string;
-	description: string;
-	image: string;
-	title: string;
-	category: string;
-	price: number | null;
-	selected: boolean;
-}
 
 export class AppState extends Model<IAppState> {
 	//каталог со всеми товарами
@@ -52,7 +42,7 @@ export class AppState extends Model<IAppState> {
 			if (item.price === null) {
 				item.selected = true;
 			}
-			return new Product(item, this.events);
+			return item;
 		});
 		this.emitChanges('items:changed', { catalog: this.catalog });
 	}
@@ -67,7 +57,7 @@ export class AppState extends Model<IAppState> {
 	}
 
 	//добавление товара в корзину
-	addItemToBasket(item: Product) {
+	addItemToBasket(item: IProductCard) {
 		this.basket.push(item);
 	}
 

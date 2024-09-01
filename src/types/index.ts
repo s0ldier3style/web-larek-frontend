@@ -18,6 +18,11 @@ export interface IBasketCard {
 	price: string | null;
 }
 
+export interface IBasketRemoveItem {
+  item: IProductCard;
+  element: HTMLElement;
+}
+
 export interface IActions {
 	onClick: (event: MouseEvent) => void;
 }

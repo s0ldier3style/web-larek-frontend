@@ -3,9 +3,9 @@ import { ApiListResponse } from './components/base/Api';
 import { API_URL, CDN_URL } from './utils/constants';
 import { OrderApi, ProductApi } from './components/view/ProductApi';
 import { cloneTemplate, ensureElement } from './utils/utils';
-import { IOrderForm, IOrderModelPost } from './types/index';
+import { IOrderForm, IOrderModelPost, IProductCard } from './types/index';
 import { EventEmitter } from './components/base/EventEmitter';
-import { AppState, Product } from './components/model/AppState';
+import { AppState } from './components/model/AppState';
 import { Page } from './components/view/partial/Page';
 import { Modal } from './components/view/common/Modal';
 import { Card, CardPreview } from './components/view/partial/Card';
@@ -13,6 +13,7 @@ import { CardBasket, Basket } from './components/view/partial/Basket';
 import { FormOrder } from './components/view/screen/FormOrder';
 import { FormContacts } from './components/view/screen/FormContacts';
 import { Success } from './components/view/screen/Success';
+import { IBasketRemoveItem } from './types/index';
 
 const cardCatalogTemplate = ensureElement<HTMLTemplateElement>('#card-catalog');
 const cardPreviewTemplate = ensureElement<HTMLTemplateElement>('#card-preview');
@@ -76,7 +77,7 @@ events.on('card:addtobasket', (data) => {
 		.getCatalog()
 		.find((item) => item.id === cardItem.id);
 	orderitem.selected = true;
-	appData.addItemToBasket(orderitem as Product);
+	appData.addItemToBasket(orderitem as IProductCard);
 	page.counter = appData.getBasketList().length;
 	modal.close();
 });
@@ -86,7 +87,10 @@ events.on('basket:open', () => {
 	const cardBasketElements = basketArray.map((item, index) => {
 		const cardBasketElement = cloneTemplate(cardBasketTemplate);
 		const cardBasket = new CardBasket('card', cardBasketElement, {
-			onClick: () => events.emit('basket:delete', item),
+			onClick: () => events.emit('basket:delete', {
+				item,
+				element: cardBasketElement
+			}),
 		});
 		cardBasket.index = index + 1;
 		cardBasket.title = item.title;
@@ -107,7 +111,7 @@ events.on('basket:open', () => {
 	page.locked = true;
 });
 
-events.on('basket:changed', (item: Product) => {
+events.on('basket:changed', (item: IProductCard) => {
 	item.selected = false;
 	page.counter = appData.getBasketList().length;
 	const basketArray = appData.getBasketList();
@@ -117,9 +121,13 @@ events.on('basket:changed', (item: Product) => {
 	);
 })
 
-events.on('basket:delete', (item: Product) => {
-	appData.removeFromBasket(item.id);
-	events.emit('basket:open');
+events.on('basket:delete', (removeObj: IBasketRemoveItem) => {
+	appData.removeFromBasket(removeObj.item.id);
+	removeObj.element.remove();
+	const orderitem = appData
+		.getCatalog()
+		.find((item) => item.id === removeObj.item.id);
+	orderitem.selected = false;
 });
 
 events.on('orderform:open', () => {
