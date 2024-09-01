@@ -39,14 +39,15 @@ const api = new ProductApi(CDN_URL, API_URL);
 const appData = new AppState({}, events);
 api.getProductList().then((response) => {
 	appData.setCatalog(response);
-});
+})
+.catch((error) => console.log(error));
 
 const orderApi = new OrderApi(CDN_URL, API_URL);
 
 events.on('items:changed', () => {
 	page.catalog = appData.getCatalog().map((item) => {
 		const card = new Card('card', cloneTemplate(cardCatalogTemplate), events, {
-			onClick: () => events.emit('carditem:open', item),
+			onClick: () => events.emit('cardItem:open', item),
 		});
 		return card.render({
 			category: item.category,
@@ -58,9 +59,9 @@ events.on('items:changed', () => {
 	});
 });
 
-events.on('carditem:open', (data) => {
-	const carditem = data as Card;
-	const item = appData.getCatalog().find((item) => item.id === carditem.id);
+events.on('cardItem:open', (data) => {
+	const cardItem = data as Card;
+	const item = appData.getCatalog().find((item) => item.id === cardItem.id);
 	const cardPreview = new CardPreview(
 		cloneTemplate(cardPreviewTemplate),
 		events
@@ -70,10 +71,10 @@ events.on('carditem:open', (data) => {
 });
 
 events.on('card:addtobasket', (data) => {
-	const carditem = data as Card;
+	const cardItem = data as Card;
 	const orderitem = appData
 		.getCatalog()
-		.find((item) => item.id === carditem.id);
+		.find((item) => item.id === cardItem.id);
 	orderitem.selected = true;
 	appData.addItemToBasket(orderitem as Product);
 	page.counter = appData.getBasketList().length;
@@ -106,16 +107,18 @@ events.on('basket:open', () => {
 	page.locked = true;
 });
 
-events.on('basket:delete', (item: Product) => {
-	appData.removeFromBasket(item.id);
+events.on('basket:changed', (item: Product) => {
 	item.selected = false;
 	page.counter = appData.getBasketList().length;
 	const basketArray = appData.getBasketList();
-	console.log(basketArray);
 	basket.totalPrice = basketArray.reduce(
 		(total, item) => total + (item.price || 0),
 		0
 	);
+})
+
+events.on('basket:delete', (item: Product) => {
+	appData.removeFromBasket(item.id);
 	events.emit('basket:open');
 });
 

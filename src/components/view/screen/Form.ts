@@ -45,7 +45,6 @@ export class Form<T> extends Component<IFormState> {
 	}
 
 	set errors(value: string) {
-		console.log('err: ', this._errors, value);
 		this.setText(this._errors, value);
 	}
 
