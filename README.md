@@ -1,6 +1,6 @@
 ![image](https://github.com/user-attachments/assets/2a178775-a3a5-4bd4-926e-7cd2fd4f9d28)
 
-[Ссылка на деплой]()
+[Ссылка на деплой](https://s0ldier3style.github.io/web-larek-frontend/)
 
 # Проектная работа "Web-ларек"
 
